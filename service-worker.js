@@ -1,15 +1,15 @@
-const CACHE_NAME = "sr-bm-static-2026-09-06-ios-resume-2";
+const CACHE_NAME = "sr-bm-static-v2.2";
 const OFFLINE_PAGE = "./index.html";
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./styles.css",
-  "./icons.js",
-  "./data.js",
-  "./audio-map.js",
-  "./app.js",
-  "./audio-player.js",
-  "./manifest.webmanifest",
+  "./styles.css?v=2.2",
+  "./icons.js?v=2.2",
+  "./data.js?v=2.2",
+  "./audio-map.js?v=2.2",
+  "./app.js?v=2.2",
+  "./audio-player.js?v=2.2",
+  "./manifest.webmanifest?v=2.2",
   "./sr-bm-icon.svg",
   "./sr-bm-icon-180.png",
   "./sr-bm-icon-192.png",

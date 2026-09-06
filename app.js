@@ -443,6 +443,24 @@
   if (!location.hash) history.replaceState({ bhajan: state.currentNumber }, "", `#bhajan-${state.currentNumber}`);
 
   if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
-    window.addEventListener("load", () => navigator.serviceWorker.register("./service-worker.js"));
+    window.addEventListener("load", async () => {
+      const hadController = Boolean(navigator.serviceWorker.controller);
+      let reloading = false;
+      navigator.serviceWorker.addEventListener("controllerchange", () => {
+        if (hadController && !reloading) {
+          reloading = true;
+          location.reload();
+        }
+      });
+      try {
+        const registration = await navigator.serviceWorker.register("./service-worker.js", {
+          updateViaCache: "none",
+        });
+        if (registration.waiting) registration.waiting.postMessage("SKIP_WAITING");
+        await registration.update();
+      } catch {
+        // The installed app remains available from its current offline cache.
+      }
+    });
   }
 })();

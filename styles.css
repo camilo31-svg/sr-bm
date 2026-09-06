@@ -430,6 +430,13 @@ input:focus-visible {
   display: none;
 }
 
+.app-version {
+  color: var(--muted);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
 .reader {
   width: min(880px, calc(100% - 48px));
   min-height: calc(100dvh - 130px);
