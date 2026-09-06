@@ -149,6 +149,25 @@ input:focus-visible {
   background: #edf1ef;
 }
 
+.audio-button {
+  color: var(--primary);
+}
+
+.audio-button.is-playing {
+  color: var(--surface);
+  background: var(--primary);
+}
+
+.audio-button.is-loading svg {
+  opacity: 0.58;
+}
+
+.audio-button:disabled {
+  color: var(--muted);
+  cursor: not-allowed;
+  opacity: 0.38;
+}
+
 .icon-button.is-favorite,
 .row-favorite.is-favorite {
   color: var(--gold);
@@ -942,6 +961,12 @@ html[data-theme="dark"] .row-favorite:hover {
   background: #26302d;
 }
 
+html[data-theme="dark"] .audio-button.is-playing,
+html[data-theme="dark"] .audio-button.is-playing:hover {
+  color: var(--surface);
+  background: var(--primary);
+}
+
 html[data-theme="dark"] .view-switch,
 html[data-theme="dark"] .reader-tabs {
   background: #242d2a;
@@ -1211,6 +1236,12 @@ html[data-theme="dark"] .drawer-backdrop {
   .word-dialog-content {
     padding-right: 18px;
     padding-left: 18px;
+  }
+}
+
+@media (max-width: 359px) {
+  .mobile-brand {
+    display: none;
   }
 }
 

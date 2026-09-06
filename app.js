@@ -270,6 +270,7 @@
     elements.next.disabled = bhajan.number === data.bhajans.length;
     elements.pagePosition.textContent = `${bhajan.number} / ${data.bhajans.length}`;
     localStorage.setItem(STORAGE.lastBhajan, String(bhajan.number));
+    window.dispatchEvent(new CustomEvent("bhajanchange", { detail: { bhajan } }));
   }
 
   function selectBhajan(number, pushHistory = true) {

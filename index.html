@@ -75,6 +75,9 @@
           <i data-icon="BookOpen"></i><strong>SR BM</strong>
         </div>
         <div class="toolbar-actions">
+          <button id="audio-button" class="icon-button audio-button" type="button" aria-label="Reproducir bhajan" aria-pressed="false" title="Reproducir">
+            <i data-icon="Play"></i>
+          </button>
           <button id="mobile-search" class="icon-button mobile-only" type="button" aria-label="Buscar bhajan" title="Buscar">
             <i data-icon="Search"></i>
           </button>
@@ -119,10 +122,13 @@
   </dialog>
 
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <audio id="bhajan-audio" preload="metadata"></audio>
 
   <noscript>SR BM necesita JavaScript para mostrar el índice y las fichas de vocabulario.</noscript>
   <script src="icons.js"></script>
   <script src="data.js"></script>
+  <script src="audio-map.js"></script>
   <script src="app.js"></script>
+  <script src="audio-player.js"></script>
 </body>
 </html>
