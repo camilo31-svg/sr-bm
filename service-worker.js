@@ -1,4 +1,4 @@
-const CACHE_NAME = "sr-bm-static-2026-09-06-audio-1";
+const CACHE_NAME = "sr-bm-static-2026-09-06-ios-resume-2";
 const OFFLINE_PAGE = "./index.html";
 const APP_SHELL = [
   "./",

@@ -17,6 +17,8 @@
   const button = document.getElementById("audio-button");
   const audio = document.getElementById("bhajan-audio");
   const toast = document.getElementById("toast");
+  const usesNativeIOSMediaControls = /iPad|iPhone|iPod/.test(navigator.userAgent)
+    || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
   if (!data?.bhajans?.length || !catalog || !button || !audio) return;
 
   let currentBhajan = bhajanFromLocation();
@@ -87,7 +89,7 @@
     loading = false;
     if ("mediaSession" in navigator) {
       navigator.mediaSession.metadata = null;
-      navigator.mediaSession.playbackState = "none";
+      if (!usesNativeIOSMediaControls) navigator.mediaSession.playbackState = "none";
     }
   }
 
@@ -163,6 +165,7 @@
   }
 
   function updatePositionState() {
+    if (usesNativeIOSMediaControls) return;
     if (!("mediaSession" in navigator) || typeof navigator.mediaSession.setPositionState !== "function") return;
     if (!Number.isFinite(audio.duration) || audio.duration <= 0) return;
     try {
@@ -177,7 +180,7 @@
   }
 
   function installMediaSessionActions() {
-    if (!("mediaSession" in navigator)) return;
+    if (usesNativeIOSMediaControls || !("mediaSession" in navigator)) return;
     const actions = {
       play: () => { void playCurrent(); },
       pause: () => audio.pause(),
@@ -198,7 +201,7 @@
   window.addEventListener("bhajanchange", (event) => setCurrentBhajan(event.detail?.bhajan));
   audio.addEventListener("play", () => {
     loading = false;
-    if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "playing";
+    if (!usesNativeIOSMediaControls && "mediaSession" in navigator) navigator.mediaSession.playbackState = "playing";
     updateButton();
   });
   audio.addEventListener("playing", () => {
@@ -207,7 +210,7 @@
   });
   audio.addEventListener("pause", () => {
     loading = false;
-    if ("mediaSession" in navigator && loadedKey) navigator.mediaSession.playbackState = "paused";
+    if (!usesNativeIOSMediaControls && "mediaSession" in navigator && loadedKey) navigator.mediaSession.playbackState = "paused";
     updateButton();
   });
   audio.addEventListener("waiting", () => {
@@ -216,7 +219,7 @@
   });
   audio.addEventListener("ended", () => {
     loading = false;
-    if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "none";
+    if (!usesNativeIOSMediaControls && "mediaSession" in navigator) navigator.mediaSession.playbackState = "none";
     updateButton();
   });
   audio.addEventListener("error", () => {
