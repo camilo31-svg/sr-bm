@@ -16,11 +16,19 @@
   const iconPrefix = isSj ? "sj-bm" : "sr-bm";
   const button = document.getElementById("audio-button");
   const audio = document.getElementById("bhajan-audio");
+  const audioSessionHold = document.getElementById("audio-session-hold");
   const toast = document.getElementById("toast");
   const usesNativeIOSMediaControls = /iPad|iPhone|iPod/.test(navigator.userAgent)
     || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
   if (!data?.bhajans?.length || !catalog || !button || !audio) return;
   audio.preload = "auto";
+  if (audioSessionHold) {
+    audioSessionHold.preload = "auto";
+    audioSessionHold.loop = true;
+    audioSessionHold.muted = false;
+    audioSessionHold.volume = 1;
+    audioSessionHold.load();
+  }
   configureIOSAudioSession();
 
   let currentBhajan = bhajanFromLocation();
@@ -28,6 +36,8 @@
   let loading = false;
   let wantsPlayback = false;
   let playbackRequest = 0;
+  let backgroundHoldActive = false;
+  let releaseBackgroundHoldOnPlaying = false;
   let toastTimer;
 
   function configureIOSAudioSession() {
@@ -46,6 +56,44 @@
     } catch {
       // Playback state is only a hint and is unavailable in some older browsers.
     }
+  }
+
+  // Zero-valued PCM keeps iOS from suspending the PWA while the bhajan itself is paused.
+  function startBackgroundAudioHold() {
+    if (!usesNativeIOSMediaControls || !audioSessionHold) return false;
+    configureIOSAudioSession();
+    releaseBackgroundHoldOnPlaying = false;
+    backgroundHoldActive = true;
+    if (!audioSessionHold.paused) return true;
+    try {
+      audioSessionHold.currentTime = 0;
+      const holdPromise = audioSessionHold.play();
+      Promise.resolve(holdPromise).catch(() => {
+        backgroundHoldActive = false;
+        releaseBackgroundHoldOnPlaying = false;
+      });
+      return true;
+    } catch {
+      backgroundHoldActive = false;
+      return false;
+    }
+  }
+
+  function stopBackgroundAudioHold() {
+    releaseBackgroundHoldOnPlaying = false;
+    backgroundHoldActive = false;
+    if (!audioSessionHold) return;
+    if (!audioSessionHold.paused) audioSessionHold.pause();
+    try {
+      audioSessionHold.currentTime = 0;
+    } catch {
+      // The local hold track may not have metadata yet on older iOS versions.
+    }
+  }
+
+  function primeBackgroundAudioHold() {
+    if (!usesNativeIOSMediaControls || document.visibilityState !== "visible") return;
+    if (startBackgroundAudioHold()) releaseBackgroundHoldOnPlaying = true;
   }
 
   function keyFor(bhajan) {
@@ -104,6 +152,7 @@
   }
 
   function clearAudio() {
+    stopBackgroundAudioHold();
     wantsPlayback = false;
     playbackRequest += 1;
     audio.pause();
@@ -155,6 +204,8 @@
   function handlePlaybackFailure(requestId) {
     if (requestId !== playbackRequest || !wantsPlayback) return;
     wantsPlayback = false;
+    releaseBackgroundHoldOnPlaying = false;
+    if (document.visibilityState === "visible") stopBackgroundAudioHold();
     loading = false;
     setMediaPlaybackState(audio.ended ? "none" : "paused");
     installMediaSessionActions();
@@ -166,6 +217,7 @@
     configureIOSAudioSession();
     if (audio.ended) audio.currentTime = 0;
     wantsPlayback = true;
+    releaseBackgroundHoldOnPlaying = backgroundHoldActive;
     const requestId = ++playbackRequest;
     loading = true;
     setMediaPlaybackState("playing");
@@ -185,6 +237,7 @@
   function playCurrent() {
     configureIOSAudioSession();
     if (loadedKey !== keyFor(currentBhajan) && !prepareCurrentAudio()) return Promise.resolve();
+    primeBackgroundAudioHold();
     return playLoadedAudio();
   }
 
@@ -195,7 +248,9 @@
     void playLoadedAudio();
   }
 
-  function pauseCurrent() {
+  function pauseCurrent({ keepBackgroundHold = false } = {}) {
+    if (!keepBackgroundHold) stopBackgroundAudioHold();
+    releaseBackgroundHoldOnPlaying = false;
     wantsPlayback = false;
     playbackRequest += 1;
     loading = false;
@@ -203,6 +258,12 @@
     setMediaPlaybackState(loadedKey ? "paused" : "none");
     installMediaSessionActions();
     updateButton();
+  }
+
+  function pauseFromMediaControls() {
+    const keepBackgroundHold = startBackgroundAudioHold();
+    pauseCurrent({ keepBackgroundHold });
+    updatePositionState();
   }
 
   function togglePlayback() {
@@ -230,7 +291,6 @@
   }
 
   function updatePositionState() {
-    if (usesNativeIOSMediaControls) return;
     if (!("mediaSession" in navigator) || typeof navigator.mediaSession.setPositionState !== "function") return;
     if (!Number.isFinite(audio.duration) || audio.duration <= 0) return;
     try {
@@ -248,7 +308,7 @@
     if (!("mediaSession" in navigator)) return;
     const actions = {
       play: resumeFromMediaControls,
-      pause: pauseCurrent,
+      pause: pauseFromMediaControls,
       seekbackward: (details) => seekBy(-(details.seekOffset || 10)),
       seekforward: (details) => seekBy(details.seekOffset || 10),
       seekto: seekTo,
@@ -270,7 +330,14 @@
     else setMediaPlaybackState(audio.paused ? "paused" : "playing");
   }
 
-  document.addEventListener("visibilitychange", refreshMediaSession);
+  function handleVisibilityChange() {
+    if (document.visibilityState === "visible" && backgroundHoldActive && !wantsPlayback) {
+      stopBackgroundAudioHold();
+    }
+    refreshMediaSession();
+  }
+
+  document.addEventListener("visibilitychange", handleVisibilityChange);
   window.addEventListener("pageshow", refreshMediaSession);
   button.addEventListener("click", togglePlayback);
   window.addEventListener("bhajanchange", (event) => setCurrentBhajan(event.detail?.bhajan));
@@ -285,6 +352,7 @@
   audio.addEventListener("playing", () => {
     wantsPlayback = true;
     loading = false;
+    if (releaseBackgroundHoldOnPlaying || backgroundHoldActive) stopBackgroundAudioHold();
     setMediaPlaybackState("playing");
     installMediaSessionActions();
     updateButton();
@@ -302,6 +370,7 @@
     updateButton();
   });
   audio.addEventListener("ended", () => {
+    stopBackgroundAudioHold();
     wantsPlayback = false;
     playbackRequest += 1;
     loading = false;
@@ -322,6 +391,24 @@
   audio.addEventListener("loadedmetadata", updatePositionState);
   audio.addEventListener("durationchange", updatePositionState);
   audio.addEventListener("timeupdate", updatePositionState);
+
+  if (audioSessionHold) {
+    audioSessionHold.addEventListener("playing", () => {
+      backgroundHoldActive = true;
+      if (wantsPlayback) return;
+      setMediaMetadata();
+      setMediaPlaybackState("paused");
+      installMediaSessionActions();
+      updatePositionState();
+    });
+    audioSessionHold.addEventListener("pause", () => {
+      backgroundHoldActive = false;
+    });
+    audioSessionHold.addEventListener("error", () => {
+      backgroundHoldActive = false;
+      releaseBackgroundHoldOnPlaying = false;
+    });
+  }
 
   installMediaSessionActions();
   setCurrentBhajan(currentBhajan);
