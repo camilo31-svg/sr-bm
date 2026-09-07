@@ -20,11 +20,22 @@
   const usesNativeIOSMediaControls = /iPad|iPhone|iPod/.test(navigator.userAgent)
     || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
   if (!data?.bhajans?.length || !catalog || !button || !audio) return;
+  audio.preload = "auto";
+  configureIOSAudioSession();
 
   let currentBhajan = bhajanFromLocation();
   let loadedKey = "";
   let loading = false;
   let toastTimer;
+
+  function configureIOSAudioSession() {
+    if (!usesNativeIOSMediaControls || !("audioSession" in navigator)) return;
+    try {
+      navigator.audioSession.type = "playback";
+    } catch {
+      // Earlier iOS versions do not expose a configurable Audio Session API.
+    }
+  }
 
   function keyFor(bhajan) {
     return isSj ? String(bhajan?.route || "") : String(bhajan?.number || "");
@@ -117,8 +128,10 @@
   function prepareCurrentAudio() {
     const entry = currentEntry();
     if (!entry) return false;
+    configureIOSAudioSession();
     loadedKey = keyFor(currentBhajan);
     loading = true;
+    audio.preload = "auto";
     audio.src = entry.url;
     audio.load();
     setMediaMetadata();
@@ -127,6 +140,7 @@
   }
 
   async function playCurrent() {
+    configureIOSAudioSession();
     if (loadedKey !== keyFor(currentBhajan) && !prepareCurrentAudio()) return;
     if (audio.ended) audio.currentTime = 0;
     loading = true;
@@ -197,9 +211,12 @@
     });
   }
 
+  document.addEventListener("visibilitychange", configureIOSAudioSession);
+  window.addEventListener("pageshow", configureIOSAudioSession);
   button.addEventListener("click", togglePlayback);
   window.addEventListener("bhajanchange", (event) => setCurrentBhajan(event.detail?.bhajan));
   audio.addEventListener("play", () => {
+    configureIOSAudioSession();
     loading = false;
     if (!usesNativeIOSMediaControls && "mediaSession" in navigator) navigator.mediaSession.playbackState = "playing";
     updateButton();
