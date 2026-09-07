@@ -26,6 +26,8 @@
   let currentBhajan = bhajanFromLocation();
   let loadedKey = "";
   let loading = false;
+  let wantsPlayback = false;
+  let playbackRequest = 0;
   let toastTimer;
 
   function configureIOSAudioSession() {
@@ -34,6 +36,15 @@
       navigator.audioSession.type = "playback";
     } catch {
       // Earlier iOS versions do not expose a configurable Audio Session API.
+    }
+  }
+
+  function setMediaPlaybackState(state) {
+    if (!("mediaSession" in navigator)) return;
+    try {
+      navigator.mediaSession.playbackState = state;
+    } catch {
+      // Playback state is only a hint and is unavailable in some older browsers.
     }
   }
 
@@ -93,6 +104,8 @@
   }
 
   function clearAudio() {
+    wantsPlayback = false;
+    playbackRequest += 1;
     audio.pause();
     audio.removeAttribute("src");
     audio.load();
@@ -100,7 +113,7 @@
     loading = false;
     if ("mediaSession" in navigator) {
       navigator.mediaSession.metadata = null;
-      if (!usesNativeIOSMediaControls) navigator.mediaSession.playbackState = "none";
+      setMediaPlaybackState("none");
     }
   }
 
@@ -139,25 +152,63 @@
     return true;
   }
 
-  async function playCurrent() {
-    configureIOSAudioSession();
-    if (loadedKey !== keyFor(currentBhajan) && !prepareCurrentAudio()) return;
-    if (audio.ended) audio.currentTime = 0;
-    loading = true;
+  function handlePlaybackFailure(requestId) {
+    if (requestId !== playbackRequest || !wantsPlayback) return;
+    wantsPlayback = false;
+    loading = false;
+    setMediaPlaybackState(audio.ended ? "none" : "paused");
+    installMediaSessionActions();
     updateButton();
+    showToast("No se pudo reproducir el audio. Comprueba tu conexión.");
+  }
+
+  function playLoadedAudio() {
+    configureIOSAudioSession();
+    if (audio.ended) audio.currentTime = 0;
+    wantsPlayback = true;
+    const requestId = ++playbackRequest;
+    loading = true;
+    setMediaPlaybackState("playing");
+    installMediaSessionActions();
+    updateButton();
+
+    let playPromise;
     try {
-      await audio.play();
+      playPromise = audio.play();
     } catch {
-      loading = false;
-      updateButton();
-      showToast("No se pudo reproducir el audio. Comprueba tu conexión.");
+      handlePlaybackFailure(requestId);
+      return Promise.resolve();
     }
+    return Promise.resolve(playPromise).catch(() => handlePlaybackFailure(requestId));
+  }
+
+  function playCurrent() {
+    configureIOSAudioSession();
+    if (loadedKey !== keyFor(currentBhajan) && !prepareCurrentAudio()) return Promise.resolve();
+    return playLoadedAudio();
+  }
+
+  function resumeFromMediaControls() {
+    if (!loadedKey || loadedKey !== keyFor(currentBhajan)) return;
+    configureIOSAudioSession();
+    setMediaMetadata();
+    void playLoadedAudio();
+  }
+
+  function pauseCurrent() {
+    wantsPlayback = false;
+    playbackRequest += 1;
+    loading = false;
+    audio.pause();
+    setMediaPlaybackState(loadedKey ? "paused" : "none");
+    installMediaSessionActions();
+    updateButton();
   }
 
   function togglePlayback() {
     if (!currentEntry()) return;
     if (loadedKey === keyFor(currentBhajan) && !audio.paused) {
-      audio.pause();
+      pauseCurrent();
     } else {
       void playCurrent();
     }
@@ -194,10 +245,10 @@
   }
 
   function installMediaSessionActions() {
-    if (usesNativeIOSMediaControls || !("mediaSession" in navigator)) return;
+    if (!("mediaSession" in navigator)) return;
     const actions = {
-      play: () => { void playCurrent(); },
-      pause: () => audio.pause(),
+      play: resumeFromMediaControls,
+      pause: pauseCurrent,
       seekbackward: (details) => seekBy(-(details.seekOffset || 10)),
       seekforward: (details) => seekBy(details.seekOffset || 10),
       seekto: seekTo,
@@ -211,23 +262,39 @@
     });
   }
 
-  document.addEventListener("visibilitychange", configureIOSAudioSession);
-  window.addEventListener("pageshow", configureIOSAudioSession);
+  function refreshMediaSession() {
+    configureIOSAudioSession();
+    installMediaSessionActions();
+    if (!loadedKey) return;
+    if (audio.ended) setMediaPlaybackState("none");
+    else setMediaPlaybackState(audio.paused ? "paused" : "playing");
+  }
+
+  document.addEventListener("visibilitychange", refreshMediaSession);
+  window.addEventListener("pageshow", refreshMediaSession);
   button.addEventListener("click", togglePlayback);
   window.addEventListener("bhajanchange", (event) => setCurrentBhajan(event.detail?.bhajan));
   audio.addEventListener("play", () => {
     configureIOSAudioSession();
+    wantsPlayback = true;
     loading = false;
-    if (!usesNativeIOSMediaControls && "mediaSession" in navigator) navigator.mediaSession.playbackState = "playing";
+    setMediaPlaybackState("playing");
+    installMediaSessionActions();
     updateButton();
   });
   audio.addEventListener("playing", () => {
+    wantsPlayback = true;
     loading = false;
+    setMediaPlaybackState("playing");
+    installMediaSessionActions();
     updateButton();
   });
   audio.addEventListener("pause", () => {
+    wantsPlayback = false;
+    playbackRequest += 1;
     loading = false;
-    if (!usesNativeIOSMediaControls && "mediaSession" in navigator && loadedKey) navigator.mediaSession.playbackState = "paused";
+    setMediaPlaybackState(loadedKey ? "paused" : "none");
+    installMediaSessionActions();
     updateButton();
   });
   audio.addEventListener("waiting", () => {
@@ -235,13 +302,20 @@
     updateButton();
   });
   audio.addEventListener("ended", () => {
+    wantsPlayback = false;
+    playbackRequest += 1;
     loading = false;
-    if (!usesNativeIOSMediaControls && "mediaSession" in navigator) navigator.mediaSession.playbackState = "none";
+    setMediaPlaybackState("none");
+    installMediaSessionActions();
     updateButton();
   });
   audio.addEventListener("error", () => {
     if (!loadedKey) return;
+    wantsPlayback = false;
+    playbackRequest += 1;
     loading = false;
+    setMediaPlaybackState("paused");
+    installMediaSessionActions();
     updateButton();
     showToast("El audio no está disponible en este momento.");
   });
