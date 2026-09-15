@@ -118,7 +118,7 @@
     elements.theme.setAttribute("aria-label", dark ? "Activar modo claro" : "Activar modo oscuro");
     elements.theme.setAttribute("aria-pressed", String(dark));
     elements.theme.title = dark ? "Modo claro" : "Modo oscuro";
-    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", dark ? "#101513" : "#1f5b4f");
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", dark ? "#09110f" : "#eaf2ee");
   }
 
   function filteredBhajans() {

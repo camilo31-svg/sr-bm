@@ -10,8 +10,8 @@
   "display": "standalone",
   "display_override": ["standalone", "minimal-ui"],
   "orientation": "any",
-  "background_color": "#f3f6f4",
-  "theme_color": "#1f5b4f",
+  "background_color": "#eaf2ee",
+  "theme_color": "#eaf2ee",
   "categories": ["books", "education", "reference"],
   "prefer_related_applications": false,
   "icons": [

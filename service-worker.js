@@ -1,14 +1,14 @@
-const CACHE_NAME = "sr-bm-static-v2.5";
+const CACHE_NAME = "sr-bm-static-v3.0";
 const OFFLINE_PAGE = "./index.html";
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./styles.css?v=2.5",
+  "./styles.css?v=3.0",
   "./icons.js?v=2.5",
   "./data.js?v=2.5",
   "./audio-map.js?v=2.5",
-  "./app.js?v=2.5",
-  "./audio-player.js?v=2.5",
+  "./app.js?v=3.0",
+  "./audio-player.js?v=3.0",
   "./manifest.webmanifest?v=2.5",
   "./audio-session-hold.wav",
   "./sr-bm-icon.svg",
